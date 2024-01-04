@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      canvas {
+        border: 1px solid #000;
+        display: block;
+        margin: 20px auto;
+      }
+    </style>
+    <title>Tetris Game</title>
+  </head>
+  <body>
+    <canvas id="tetrisCanvas" width="300" height="600"></canvas>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const canvas = document.getElementById("tetrisCanvas");
+        const context = canvas.getContext("2d");
+        const block_size = 30;
+        const columns = canvas.width / block_size;
+        const rows = canvas.height / block_size;
+
+        // Define colors for each shape
+        const shapeColors = [
+          "#ff0000", // Red
+          "#00ff00", // Green
+          "#0000ff", // Blue
+          "#ffff00", // Yellow
+          "#ff00ff", // Magenta
+          "#00ffff", // Cyan
+          "#ffa500", // Orange
+        ];
+
+        // Tetris shapes with colors
+        const SHAPES = [
+          {
+            shape: [[1, 1, 1, 1]],
+            color: shapeColors[0],
+          },
+          {
+            shape: [
+              [1, 1],
+              [1, 1],
+            ],
+            color: shapeColors[1],
+          },
+          {
+            shape: [
+              [1, 1, 1],
+              [0, 1, 0],
+            ],
+            color: shapeColors[2],
+          },
+          {
+            shape: [
+              [1, 1, 1],
+              [1, 0, 0],
+            ],
+            color: shapeColors[3],
+          },
+          {
+            shape: [
+              [1, 1, 1],
+              [0, 0, 1],
+            ],
+            color: shapeColors[4],
+          },
+          {
+            shape: [
+              [1, 1, 0],
+              [0, 1, 1],
+            ],
+            color: shapeColors[5],
+          },
+          {
+            shape: [
+              [0, 1, 1],
+              [1, 1, 0],
+            ],
+            color: shapeColors[6],
+          },
+        ];
+
+        // Current active shape
+        let currentShape;
+        let currentX;
+        let currentY;
+
+        // Initialize the grid
+        const grid = Array.from({ length: rows }, () => Array(columns).fill(0));
+
+        // Set the speed (in milliseconds) for the shapes to move down
+        const speed = 500; // Adjust this value to control the speed
+
+        // Initialize the game
+        function initGame() {
+          currentShape = getRandomShape();
+          currentX =
+            Math.floor(columns / 2) -
+            Math.floor(currentShape.shape[0].length / 2);
+          currentY = 0;
+
+          draw();
+        }
+
+        // Get a random shape
+        function getRandomShape() {
+          return SHAPES[Math.floor(Math.random() * SHAPES.length)];
+        }
+
+        // Draw a block with color
+        function drawBlock(x, y, color) {
+          context.fillStyle = color;
+          context.fillRect(
+            x * block_size,
+            y * block_size,
+            block_size,
+            block_size
+          );
+          context.strokeRect(
+            x * block_size,
+            y * block_size,
+            block_size,
+            block_size
+          );
+        }
+
+        // Draw the current shape with color
+        function draw() {
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.strokeStyle = "#000";
+
+          // Draw the grid
+          for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < columns; col++) {
+              if (grid[row][col] !== 0) {
+                const colorIndex = grid[row][col] - 1;
+                drawBlock(col, row, shapeColors[colorIndex]);
+              }
+            }
+          }
+
+          // Draw the current shape
+          for (let row = 0; row < currentShape.shape.length; row++) {
+            for (let col = 0; col < currentShape.shape[row].length; col++) {
+              if (currentShape.shape[row][col] === 1) {
+                drawBlock(currentX + col, currentY + row, currentShape.color);
+              }
+            }
+          }
+        }
+
+        // Check if a move is valid
+        function isValidMove(offsetX, offsetY, newShape = currentShape.shape) {
+          for (let row = 0; row < newShape.length; row++) {
+            for (let col = 0; col < newShape[row].length; col++) {
+              if (
+                newShape[row][col] === 1 &&
+                ((grid[currentY + row + offsetY] &&
+                  grid[currentY + row + offsetY][currentX + col + offsetX] !==
+                    0) ||
+                  currentY + row + offsetY >= rows ||
+                  currentX + col + offsetX < 0 ||
+                  currentX + col + offsetX >= columns)
+              ) {
+                return false;
+              }
+            }
+          }
+          return true;
+        }
+
+        // Move the current shape down
+        function moveDown() {
+          if (isValidMove(0, 1)) {
+            currentY++;
+            draw();
+            return true;
+          } else {
+            mergeShape();
+            clearRows();
+
+            // Check if the shape has reached the top
+            if (currentY <= 0) {
+              return false;
+            }
+
+            initGame();
+            return true;
+          }
+        }
+
+        // Move the current shape left
+        function moveLeft() {
+          if (isValidMove(-1, 0)) {
+            currentX--;
+            draw();
+          }
+        }
+
+        // Move the current shape right
+        function moveRight() {
+          if (isValidMove(1, 0)) {
+            currentX++;
+            draw();
+          }
+        }
+
+        // Rotate the current shape
+        function rotateShape() {
+          const rotatedShape = currentShape.shape[0]
+            .map((_, i) => currentShape.shape.map((row) => row[i]))
+            .reverse();
+          if (isValidMove(0, 0, rotatedShape)) {
+            currentShape.shape = rotatedShape;
+            draw();
+          }
+        }
+
+        // Merge the current shape into the grid
+        function mergeShape() {
+          for (let row = 0; row < currentShape.shape.length; row++) {
+            for (let col = 0; col < currentShape.shape[row].length; col++) {
+              if (currentShape.shape[row][col] === 1) {
+                grid[currentY + row][currentX + col] =
+                  SHAPES.indexOf(currentShape) + 1;
+              }
+            }
+          }
+        }
+
+        // Clear full rows
+        function clearRows() {
+          let rowsToClear = [];
+          for (let row = rows - 1; row >= 0; row--) {
+            if (grid[row].every((cell) => cell !== 0)) {
+              rowsToClear.push(row);
+            }
+          }
+
+          // Clear identified rows
+          rowsToClear.forEach((row) => grid.splice(row, 1));
+
+          // Add new empty rows at the top
+          for (let i = 0; i < rowsToClear.length; i++) {
+            grid.unshift(Array(columns).fill(0));
+          }
+        }
+
+        // Handle keyboard input
+        window.addEventListener("keydown", (event) => {
+          switch (event.code) {
+            case "ArrowDown":
+              moveDown();
+              break;
+            case "ArrowLeft":
+              moveLeft();
+              break;
+            case "ArrowRight":
+              moveRight();
+              break;
+            case "Space":
+              rotateShape();
+              break;
+          }
+        });
+
+        // ... (existing code)
+
+        // Start the game loop
+        initGame();
+
+        // Game loop
+        function gameLoop() {
+          if (!moveDown()) {
+            // Game over condition
+            alert("Game Over!");
+            // Optionally, you can reset the game or perform any other actions here
+            initGame();
+          } else {
+            setTimeout(gameLoop, speed);
+          }
+        }
+
+        // Start the game loop
+        gameLoop();
+      });
+    </script>
+  </body>
+</html>
